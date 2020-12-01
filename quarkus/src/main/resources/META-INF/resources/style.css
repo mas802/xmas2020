@@ -1,0 +1,58 @@
+body {
+  margin: 10px;
+  justify-content: center;
+}
+
+.wrapper {
+    margin: 0px auto 0px auto;
+    display: grid;
+    grid-gap: 3px;
+    grid-template-columns: 16% 16% 16% 16% 16% 16%;
+    grid-auto-columns: 15%;
+    background-color: #fff;
+    color: #f00;
+    max-width: 40em;
+    max-height: 100vh;
+  }
+
+  .box {
+    background-color: #822;
+    color: #fff;
+    border-radius: 3px;
+    padding: 5px;
+    margin: 0px;
+    font-size: 150%;
+  }
+
+  .full {
+    grid-column: 1 / 7;
+  }
+  .halfleft {
+    grid-column: 1 / 4 ;
+  }
+  .halfright {
+    grid-column: 4 / 7 ;
+  }
+  .thirdleft {
+    grid-column: 1 / 3 ;
+  }
+  .thirdmiddle {
+    grid-column: 3 / 5 ;
+  }
+  .thirdright {
+    grid-column: 5 / 7;;
+  }
+
+img {
+    max-width: 100%;
+}
+
+.imgw {
+    width: 2000px;
+}
+
+xmas-start {
+  margin: 0px;
+  padding: 0px;
+  display: inline;
+}
