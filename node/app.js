@@ -48,7 +48,7 @@ var statusMap = new TwoWayMap( {
     "5" : "ON"
 });
 
-var WebSocketClient = require('websocket').client;
+// BOUNDARY I2C
 
 const i2c = require('i2c-bus');
 const I2C_ADDR1 = 0x0b;
@@ -73,6 +73,8 @@ sendI2C = function(item) {
   });
 }
 
+// BOUNDARY POWEREDUP
+
 const PoweredUP = require("node-poweredup");
 const poweredUP = new PoweredUP.PoweredUP();
 let motorA;
@@ -88,29 +90,41 @@ poweredUP.on("discover", async (hub) => { // Wait to discover a Hub
 });
 
 
+// BOUNDARY WEBSOCKET
+var W3CWebSocket = require('websocket').w3cwebsocket;
+var client = new W3CWebSocket('ws://localhost:8080/trainws/xmas');
+
+client.onerror = function() {
+    console.log(Date.now() + 'Connection Error');
+};
+
+client.onopen = function() {
+    console.log(Date.now() + 'WebSocket Client Connected');
+};
+
+client.onclose = function() {
+    console.log(Date.now() + 'WebSocket Client Closed');
+};
+
+client.onmessage = function(e) {
+    if (typeof e.data === 'string') {
+        receiveMsg(e.data);
+    }
+};
 
 
-var client = new WebSocketClient();
 
-client.on('connectFailed', function(error) {
-    console.log(Date.now() + ' Connect Error: ' + error.toString());
-});
+function sendMsg(msg) {
+    if (client.readyState === client.OPEN) {
+        client.send(msg);
+    }
+}
 
-client.on('connect', function(connection) {
-    console.log('WebSocket Client Connected');
-    connection.on('error', function(error) {
-        console.log(Date.now() + " Connection Error: " + error.toString());
-    });
-    connection.on('close', function() {
-        console.log(Date.now() + ' echo-protocol Connection Closed');
-//        setTimeout(function() {
-//          connect();
-//        }, 1000);
-    });
-    connection.on('message', function(message) {
-        if (message.type === 'utf8') {
-            console.log(Date.now() + " Received: '" + message.utf8Data + "'");
-            if (message.utf8Data === 'toggle:TRAIN') {
+function receiveMsg(message) {
+    console.log(Date.now() + " Received: '" + message + "'");
+    cmd = message.split(":");
+    if (cmd[0] === "toggle") {
+            if (message === 'toggle:TRAIN') {
                 if (motorA) {
                   if (!motorAtoggle) {
                     motorA.setPower(-50);
@@ -118,74 +132,47 @@ client.on('connect', function(connection) {
                     setTimeout( function () {
                       motorA.setPower(0);
                       motorAtoggle = false;
-                    }, 15000
-                    );
+                    }, 15000);
                   } else {
                     motorA.setPower(0);
                     motorAtoggle = false;
                   }
                 }
-            } else if (message.utf8Data === 'toggle:HOUSE') {
+            } else if (message === 'toggle:HOUSE') {
                 sendI2C(itemMap.get('HOUSE'));
-            } else if (message.utf8Data === 'toggle:CAVE') {
+            } else if (message === 'toggle:CAVE') {
                 sendI2C(itemMap.get('CAVE'));
-            } else if (message.utf8Data === 'toggle:SIGNAL1') {
+            } else if (message === 'toggle:SIGNAL1') {
                 sendI2C(itemMap.get('SIGNAL1'));
-            } else if (message.utf8Data === 'toggle:SIGNAL2') {
+            } else if (message === 'toggle:SIGNAL2') {
                 sendI2C(itemMap.get('SIGNAL2'));
-            } else if (message.utf8Data === 'toggle:SIGNAL3') {
+            } else if (message === 'toggle:SIGNAL3') {
                 sendI2C(itemMap.get('SIGNAL3'));
-            } else if (message.utf8Data === 'toggle:WHITE1') {
+            } else if (message === 'toggle:WHITE1') {
                 sendI2C(itemMap.get('WHITE1'));
-            } else if (message.utf8Data === 'toggle:WHITE2') {
+            } else if (message === 'toggle:WHITE2') {
                 sendI2C(itemMap.get('WHITE2'));
-            } else if (message.utf8Data === 'toggle:WARN') {
+            } else if (message === 'toggle:WARN') {
                 sendI2C(itemMap.get('WARN'));
-                setTimeout( function() {
-                   healthCheck();
-                   statusSync(true);
-                }, 500);
             }
-        }
-    });
-
-    function sendNumber() {
-        if (connection.connected) {
-            var number = Math.round(Math.random() * 0xFFFFFF);
-            connection.sendUTF(Date.now() + " still alive: " + number.toString());
-            setTimeout(sendNumber, 120000);
-        }
+            setTimeout( function() {
+                healthCheck();
+                statusSync(false);
+            }, 500);
     }
-    sendNumber();
-});
+}
 
-console.log(Date.now() + " deley startup by 20 seconds to make sure everything is ready");
-setTimeout( function() {
-  client.connect('ws://localhost:8080/trainws/xmas');
-  poweredUP.scan(); // Start scanning for Hubs
-  console.log(Date.now() + "Scanning for Hubs...");
-}, 1000);
-
-
-
-let color = 1;
-setInterval(() => {
-  healthCheck();
-}, 300000);
+// CONTROL
 
 function healthCheck() {
-
     const hubs = poweredUP.getHubs(); // Get an array of all connected hubs
     hubs.forEach(async (hub) => {
         const led = await hub.waitForDeviceByType(PoweredUP.Consts.DeviceType.HUB_LED);
-        led.setColor(color); // Set the color
+        led.setColor(1); // Set the color
         console.log(Date.now() + " battery level: " + hub.batteryLevel);
         setTimeout(() => {led.setColor(0)}, 10);
     })
-    color++;
-    if (color > 10) {
-        color = 1;
-    }
+    sendMsg(Date.now() + "alive");
 }
 
 statusSync = function(force) {
@@ -198,8 +185,22 @@ statusSync = function(force) {
       console.log(Date.now() + " STATE: "  + item + ":" + statusMap.get(snew) + ":" + i + ":" + sold + ":" + snew);
       if (force || sold!=snew) {
         status[item] = snew;
-//          client.send("state:" + itemMap.revGet(i) + ":" + statusMap.get(i));
+          sendMsg("state:" + item + ":" + statusMap.get(snew));
+          console.log("sent");
       }
     }
   }, 1000);
 }
+
+console.log(Date.now() + " deley startupa bit to make sure everything is ready");
+setTimeout( function() {
+  poweredUP.scan(); // Start scanning for Hubs
+  console.log(Date.now() + "Scanning for Hubs...");
+  setTimeout( function() {statusSync(true)}, 1000);
+}, 1000);
+
+
+setInterval(() => {
+  healthCheck();
+}, 300000);
+
