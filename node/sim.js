@@ -11,7 +11,7 @@ TwoWayMap.prototype.get = function(key){ return this.map[key]; };
 TwoWayMap.prototype.revGet = function(key){ return this.reverseMap[key]; };
 
 var itemMap = new TwoWayMap({
-   'TRAIN' : '99',
+   'TRAIN' : '11',
    'HOUSE' : '0',
    'CAVE' : '1',
    'SIGNAL1' : '2',
@@ -45,56 +45,33 @@ var statusMap = new TwoWayMap( {
     "2" : "A",
     "3" : "B",
     "4" : "OFF",
-    "5" : "ON",
-    "99" : "failed"
+    "5" : "ON"
 });
 
-// BOUNDARY I2C
-
-const i2c = require('i2c-bus');
-const I2C_ADDR1 = 0x0b;
 const rbuffer = Buffer.alloc(16);
-const wbuffer = Buffer.alloc(16);
-
-const i2c1 = i2c.open(1, true, function (err) {
-    if (err)  console.log(err);
-});
-
-readI2C = function() {
-  i2c1.i2cRead(I2C_ADDR1, 16, rbuffer, function (err,n) {
-    if (err) { 
-      console.log(err);
-      for (i=0; i<16; i++) {
-        rbuffer[i] = 99;
-      }
-    }
-    console.log(rbuffer);
-  });
-}
 
 sendI2C = function(item) {
-  wbuffer[0] = item;
-  i2c1.i2cWrite(I2C_ADDR1, 1, wbuffer, function (err,i) {
-    if (err)  console.log(err);
-  });
+    sold = +status[itemMap.revGet(item)];
+    switch (sold) {
+      case 0:
+      case 4:
+        rbuffer[item] = 1;
+        break;
+      case 1:
+      case 5:
+        rbuffer[item] = 0;
+        break;
+      case 2:
+        rbuffer[item] = 3;
+        break;
+      case 3:
+        rbuffer[item] = 2;
+        break;
+    }
+    console.log(sold);
+    console.log(item);
+    console.log(rbuffer);
 }
-
-// BOUNDARY POWEREDUP
-
-const PoweredUP = require("node-poweredup");
-const poweredUP = new PoweredUP.PoweredUP();
-let motorA;
-let motorAtoggle = false;
-
-poweredUP.on("discover", async (hub) => { // Wait to discover a Hub
-    console.log(Date.now() + ` Discovered 1 ${hub.name}!`);
-    await hub.connect(); // Connect to the Hub
-    console.log(Date.now() + " Connected 1");
-    motorA = await hub.waitForDeviceAtPort("A"); // Make sure a motor is plugged into port A
-    console.log(Date.now() + " Connected");
-    console.log(Date.now() + "battery level: " + hub.batteryLevel);
-});
-
 
 // BOUNDARY WEBSOCKET
 var W3CWebSocket = require('websocket').w3cwebsocket;
@@ -131,19 +108,7 @@ function receiveMsg(message) {
     cmd = message.split(":");
     if (cmd[0] === "toggle") {
             if (message === 'toggle:TRAIN') {
-                if (motorA) {
-                  if (!motorAtoggle) {
-                    motorA.setPower(-50);
-                    motorAtoggle = true;
-                    setTimeout( function () {
-                      motorA.setPower(0);
-                      motorAtoggle = false;
-                    }, 15000);
-                  } else {
-                    motorA.setPower(0);
-                    motorAtoggle = false;
-                  }
-                }
+                sendI2C(itemMap.get('TRAIN'));
             } else if (message === 'toggle:HOUSE') {
                 sendI2C(itemMap.get('HOUSE'));
             } else if (message === 'toggle:CAVE') {
@@ -164,28 +129,20 @@ function receiveMsg(message) {
             setTimeout( function() {
                 healthCheck();
                 statusSync(false);
-            }, 500);
+            }, 100);
     }
     if (cmd[0] === "info") {
-      statusSync(true);
+                statusSync(true);
     }
 }
 
 // CONTROL
 
 function healthCheck() {
-    const hubs = poweredUP.getHubs(); // Get an array of all connected hubs
-    hubs.forEach(async (hub) => {
-        const led = await hub.waitForDeviceByType(PoweredUP.Consts.DeviceType.HUB_LED);
-        led.setColor(1); // Set the color
-        console.log(Date.now() + " battery level: " + hub.batteryLevel);
-        setTimeout(() => {led.setColor(0)}, 10);
-    })
     sendMsg(Date.now() + "alive");
 }
 
 statusSync = function(force) {
-  readI2C();
   setTimeout( function() {
     for (i = 0; i<10; i++) {
       item = itemMap.revGet(i);
@@ -198,17 +155,11 @@ statusSync = function(force) {
           console.log("sent");
       }
     }
-    if (motorA) {
-      sendMsg("state:TRAIN:ON");
-    } else {
-      sendMsg("state:TRAIN:failed");
-    }
-  }, 1000);
+  }, 200);
 }
 
 console.log(Date.now() + " deley startupa bit to make sure everything is ready");
 setTimeout( function() {
-  poweredUP.scan(); // Start scanning for Hubs
   console.log(Date.now() + "Scanning for Hubs...");
   setTimeout( function() {statusSync(true)}, 1000);
 }, 1000);
