@@ -60,16 +60,20 @@ const i2c1 = i2c.open(1, true, function (err) {
     if (err)  console.log(err);
 });
 
+lastread = 0;
 readI2C = function() {
-  i2c1.i2cRead(I2C_ADDR1, 16, rbuffer, function (err,n) {
-    if (err) { 
-      console.log(err);
-      for (i=0; i<16; i++) {
-        rbuffer[i] = 99;
+  if ( Date.now()-lastread > 1000) {
+    lastread = Date.now();
+    i2c1.i2cRead(I2C_ADDR1, 16, rbuffer, function (err,n) {
+      if (err) { 
+        console.log(err);
+        for (i=0; i<16; i++) {
+          rbuffer[i] = 99;
+        }
       }
-    }
-    console.log(rbuffer);
-  });
+      console.log(rbuffer);
+    });
+  }
 }
 
 sendI2C = function(item) {
@@ -164,10 +168,10 @@ function receiveMsg(message) {
             setTimeout( function() {
                 healthCheck();
                 statusSync(false);
-            }, 500);
+            }, 300);
     }
     if (cmd[0] === "info") {
-      statusSync(true);
+      statusSync(true, cmd[1]);
     }
 }
 
@@ -184,7 +188,7 @@ function healthCheck() {
     sendMsg(Date.now() + "alive");
 }
 
-statusSync = function(force) {
+statusSync = function(forceall, forceditem) {
   readI2C();
   setTimeout( function() {
     for (i = 0; i<10; i++) {
@@ -192,7 +196,7 @@ statusSync = function(force) {
       sold = status[item];
       snew = rbuffer[i];
       console.log(Date.now() + " STATE: "  + item + ":" + statusMap.get(snew) + ":" + i + ":" + sold + ":" + snew);
-      if (force || sold!=snew) {
+      if (forceall || sold!=snew || forceditem===item) {
         status[item] = snew;
           sendMsg("state:" + item + ":" + statusMap.get(snew));
           console.log("sent");
@@ -203,7 +207,7 @@ statusSync = function(force) {
     } else {
       sendMsg("state:TRAIN:failed");
     }
-  }, 1000);
+  }, 300);
 }
 
 console.log(Date.now() + " deley startupa bit to make sure everything is ready");
