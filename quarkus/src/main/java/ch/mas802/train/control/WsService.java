@@ -57,9 +57,18 @@ public class WsService {
             return status;
         }
 
-        broadcast(mode+":"+key);
-        statusRepository.updateStatus(key, "load", 500);
-        return new Status("load", 500);
+        long until = 500;
+        if (!"load".equals(status.state)) {
+          broadcast(mode+":"+key);
+        } else {
+          broadcast(mode+":"+key);
+          until = status.deltaduration*2;
+          if (until>10000) {
+            return new Status("error", until*2, until);
+          }
+        }
+        statusRepository.updateStatus(key, "load", until);
+        return new Status("load", until*2, until);
     }
 
     public Status info(final String key) {

@@ -40,6 +40,12 @@ public class WsResource {
 
     @OnMessage
     public void onMessage(Session session, String message, @PathParam("clientname") String clientname) {
-        wsService.broadcast(">> " + clientname + ": " + message);
+        String[] cmd = message.split(":");
+        if ("state".equals(cmd[0]) && cmd.length == 3) {
+            wsService.incomingStatus(cmd[1], cmd[2], 2000);
+            wsService.broadcast(">> " + clientname + ": STATE" );
+        } else {
+            wsService.broadcast(">> " + clientname + ": " + message + ": " + cmd[0] + ": " + cmd.length);
+        }
     }
 }
