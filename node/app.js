@@ -220,5 +220,5 @@ setTimeout( function() {
 
 setInterval(() => {
   healthCheck();
-}, 300000);
+}, 3600000);
 
