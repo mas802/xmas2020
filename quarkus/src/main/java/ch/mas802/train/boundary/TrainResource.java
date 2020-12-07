@@ -41,7 +41,7 @@ public class TrainResource {
     }
 
 
-    @Path("status")
+    @Path("/status")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String, Status> status() {

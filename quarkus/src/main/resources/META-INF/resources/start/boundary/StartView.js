@@ -1,4 +1,6 @@
-import { trainInfo } from "../control/StartControl.js";
+import { trainInfo,trainToggle } from "../control/StartControl.js";
+
+const sleep = m => new Promise(r => setTimeout(r, m))
 
 class StartView extends HTMLElement {
 
@@ -27,38 +29,51 @@ img {
 
     this.action = this.action.bind(this);
 
+    this.ele = this;
   }
 
-  connectedCallback() {
-    console.log("start view connected callback");
-    this.buttonStart.addEventListener('click', this.action);
-  }
-
-  action() {
-    this.state = "load";
-    this.update();
-
-    console.log("perform action");
-
-    trainInfo(this);
-  }
 
   update() {
     this.buttonStart.src=`/imgs/${this.label}_${this.state}.jpg`; 
-//    this.spanValue.innerText = this.count;
   }
 
-  callback(result) {
+  async infoCallback() {
+    var result = [];
+    result = await trainInfo(this.label);
+    console.log(Date.now() + " info " + result)
     this.state = result.state;
-    this.state = "update";
     this.update();
-    if ( result.until > 0 ) {
-        if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
-        }
-// FIXME        this.updateTimer = setTimeout( trainInfo(this), result.until);
+
+    if ( result.state === "load" && result.until > 0 ) {
+        await sleep(result.until);
+        await this.infoCallback();
     }
   }
+
+  async action() {
+    this.state = "load";
+    this.update();
+
+    var result = [];
+    console.log("perform action");
+    result = await trainToggle(this.label);
+
+    this.state = result.state;
+    this.update();
+
+    if ( result.until > 0 ) {
+        await sleep(result.until);
+        await this.infoCallback();
+    }
+  }
+
+  connectedCallback() {
+    console.log(Date.now() + " toggelt")
+    console.log("start view connected callback");
+    this.buttonStart.addEventListener('click', this.action);
+    this.infoCallback();
+  }
+
 }
 
 customElements.define('xmas-start', StartView);
