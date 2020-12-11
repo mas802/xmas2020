@@ -135,7 +135,8 @@ function receiveMsg(message) {
     cmd = message.split(":");
     if (cmd[0] === "toggle") {
             if (message === 'toggle:TRAIN') {
-                if (motorA) {
+               if (motorA) {
+                  try {
                   if (!motorAtoggle) {
                     motorA.setPower(-50);
                     motorAtoggle = true;
@@ -147,6 +148,7 @@ function receiveMsg(message) {
                     motorA.setPower(0);
                     motorAtoggle = false;
                   }
+                  } catch (err) { motorA = false }
                 }
             } else if (message === 'toggle:HOUSE') {
                 sendI2C(itemMap.get('HOUSE'));
