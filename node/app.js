@@ -89,6 +89,12 @@ const PoweredUP = require("node-poweredup");
 const poweredUP = new PoweredUP.PoweredUP();
 let motorA;
 let motorAtoggle = false;
+let trainRunCounter = 0;
+let totalTrainRunCounter = 0;
+
+setInterval(() => {
+  trainRunCounter = 0;
+}, 300000);
 
 poweredUP.on("discover", async (hub) => { // Wait to discover a Hub
     console.log(Date.now() + ` Discovered 1 ${hub.name}!`);
@@ -106,6 +112,7 @@ var client = new W3CWebSocket('ws://localhost:8080/trainws/xmas');
 
 client.onerror = function() {
     console.log(Date.now() + 'Connection Error');
+   process.exit(1);
 };
 
 client.onopen = function() {
@@ -114,6 +121,7 @@ client.onopen = function() {
 
 client.onclose = function() {
     console.log(Date.now() + 'WebSocket Client Closed');
+   process.exit(1);
 };
 
 client.onmessage = function(e) {
@@ -137,9 +145,11 @@ function receiveMsg(message) {
             if (message === 'toggle:TRAIN') {
                if (motorA) {
                   try {
-                  if (!motorAtoggle) {
+                  if (trainRunCounter < 5 && !motorAtoggle) {
                     motorA.setPower(-50);
                     motorAtoggle = true;
+                    trainRunCounter++;
+                    totalTrainRunCounter++;
                     setTimeout( function () {
                       motorA.setPower(0);
                       motorAtoggle = false;
@@ -184,9 +194,12 @@ function healthCheck() {
     hubs.forEach(async (hub) => {
         const led = await hub.waitForDeviceByType(PoweredUP.Consts.DeviceType.HUB_LED);
         led.setColor(1); // Set the color
-        console.log(Date.now() + " battery level: " + hub.batteryLevel);
+        console.log(Date.now() + " toatl run: " + totalTrainRunCounter  +  " battery level: " + hub.batteryLevel);
         setTimeout(() => {led.setColor(0)}, 10);
-    })
+        if (hub.batteryLevel<20) {
+          process.exit(1);
+        }
+    });
     sendMsg(Date.now() + "alive");
 }
 
@@ -204,10 +217,12 @@ statusSync = function(forceall, forceditem) {
           console.log("sent");
       }
     }
-    if (motorA) {
+    if ((motorA) && (trainRunCounter < 5)) {
       sendMsg("state:TRAIN:ON");
+      console.log("train on counter : "+ trainRunCounter + " - " + totalTrainRunCounter + " - " + motorA);
     } else {
       sendMsg("state:TRAIN:failed");
+      console.log("train off counter : "+ trainRunCounter + " - " + totalTrainRunCounter + " - " + motorA);
     }
   }, 300);
 }
@@ -222,5 +237,5 @@ setTimeout( function() {
 
 setInterval(() => {
   healthCheck();
-}, 3600000);
+}, 36000000);
 
